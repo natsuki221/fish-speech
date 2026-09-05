@@ -836,7 +836,9 @@ function App() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="audio/*"
+                    // QuickTime .mov and iPhone .mp4 are video/* to the
+                    // picker, so audio/* alone hides them on macOS.
+                    accept="audio/*,video/mp4,video/quicktime,.m4a,.caf,.mov,.mp4"
                     className="hidden"
                     onChange={handleReferenceUpload}
                   />

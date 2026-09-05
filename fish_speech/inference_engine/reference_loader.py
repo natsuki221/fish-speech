@@ -11,6 +11,7 @@ from loguru import logger
 from fish_speech.models.dac.modded_dac import DAC
 from fish_speech.utils.file import (
     AUDIO_EXTENSIONS,
+    FFMPEG_ONLY_EXTENSIONS,
     audio_to_bytes,
     list_files,
     read_ref_text,
@@ -42,13 +43,13 @@ class ReferenceLoader:
             else:
                 self.backend = "soundfile"
         except AttributeError:
-            # torchaudio 2.9+ removed list_audio_backends()
-            # Try ffmpeg first, fallback to soundfile
+            # torchaudio 2.9+ removed list_audio_backends(). StreamReader imports
+            # fine without ffmpeg but cannot be constructed, so probe the ffmpeg
+            # extension itself rather than a module path that no longer exists.
             try:
-                __import__("torchaudio.io._load_audio_fileobj")
-
+                torchaudio.utils.ffmpeg_utils.get_audio_decoders()
                 self.backend = "ffmpeg"
-            except (ImportError, ModuleNotFoundError):
+            except Exception:
                 self.backend = "soundfile"
 
     @staticmethod
@@ -137,7 +138,20 @@ class ReferenceLoader:
         if isinstance(reference_audio, bytes):
             reference_audio = io.BytesIO(reference_audio)
 
-        waveform, original_sr = torchaudio.load(reference_audio, backend=self.backend)
+        try:
+            waveform, original_sr = torchaudio.load(
+                reference_audio, backend=self.backend
+            )
+        except Exception as exc:
+            if self.backend != "soundfile":
+                raise
+            raise RuntimeError(
+                "Could not decode the reference audio. The soundfile backend "
+                "only reads what libsndfile supports (wav, flac, mp3, ogg, "
+                "aiff, caf); "
+                f"{', '.join(sorted(FFMPEG_ONLY_EXTENSIONS))} need ffmpeg "
+                "installed so torchaudio can use its ffmpeg backend."
+            ) from exc
 
         if waveform.shape[0] > 1:
             waveform = torch.mean(waveform, dim=0, keepdim=True)

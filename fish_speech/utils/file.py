@@ -16,11 +16,22 @@ AUDIO_EXTENSIONS = {
     ".aiff",
     ".aif",
     ".aifc",
+    ".caf",
+    # Apple containers that carry an audio track: Voice Memos exports .m4a,
+    # QuickTime .mov, and iPhone camera clips .mp4.
+    ".mp4",
+    ".mov",
 }
 
-VIDEO_EXTENSIONS = {
+# libsndfile, and therefore the soundfile backend, cannot open MPEG-4 or ASF
+# containers. These only load once ffmpeg is installed and torchaudio picks its
+# ffmpeg backend; docker/Dockerfile installs it via apt, a bare venv does not.
+FFMPEG_ONLY_EXTENSIONS = {
+    ".m4a",
+    ".wma",
+    ".aac",
     ".mp4",
-    ".avi",
+    ".mov",
 }
 
 
