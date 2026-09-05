@@ -142,4 +142,8 @@ if __name__ == "__main__":
         workers=args.workers,
         log_level="info",
         factory=True,
+        # Default is None, i.e. wait forever. An idle keep-alive connection
+        # (a VS Code forwarded port, a browser tab) is then enough to hang
+        # Ctrl+C indefinitely while the GPU stays allocated.
+        timeout_graceful_shutdown=args.timeout_graceful_shutdown,
     )

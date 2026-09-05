@@ -39,6 +39,7 @@ def parse_args():
     parser.add_argument("--listen", type=str, default="127.0.0.1:8080")
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--api-key", type=str, default=None)
+    parser.add_argument("--timeout-graceful-shutdown", type=int, default=10)
 
     return parser.parse_args()
 
