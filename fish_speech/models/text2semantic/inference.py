@@ -360,7 +360,13 @@ def generate(
 
 
 def init_model(checkpoint_path, device, precision, compile=False):
-    model = DualARTransformer.from_pretrained(checkpoint_path, load_weights=True)
+    # KV cache and causal_mask are sized from config.max_seq_len (32768 for s2-pro),
+    # costing ~5.5 GiB of VRAM regardless of how long the output actually is.
+    model = DualARTransformer.from_pretrained(
+        checkpoint_path,
+        load_weights=True,
+        max_length=int(os.environ.get("FISH_MAX_SEQ_LEN", 0)) or None,
+    )
 
     model = model.to(device=device, dtype=precision)
     logger.info(f"Restored model from checkpoint")

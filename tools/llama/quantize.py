@@ -418,6 +418,13 @@ class WeightOnlyInt4Linear(torch.nn.Module):
         )
 
 
+# from_pretrained() prefers safetensors over model.pth, so the source weights must
+# not be copied alongside the quantized checkpoint or they silently win.
+_skip_weights = shutil.ignore_patterns(
+    "*.safetensors", "model.safetensors.index.json", "codec.pth"
+)
+
+
 def generate_folder_name():
     now = datetime.datetime.now()
     folder_name = now.strftime("%Y%m%d_%H%M%S")
@@ -451,7 +458,6 @@ def quantize(checkpoint_path: Path, mode: str, groupsize: int, timestamp: str) -
         precision=precision,
         compile=False,
     )
-    vq_model = "codec.pth"
     now = timestamp if timestamp != "None" else generate_folder_name()
 
     if mode == "int8":
@@ -463,9 +469,9 @@ def quantize(checkpoint_path: Path, mode: str, groupsize: int, timestamp: str) -
 
         dir_name = checkpoint_path
         dst_name = Path(f"checkpoints/fs-1.2-int8-{now}")
-        shutil.copytree(str(dir_name.resolve()), str(dst_name.resolve()))
-        if (dst_name / vq_model).exists():
-            (dst_name / vq_model).unlink()
+        shutil.copytree(
+            str(dir_name.resolve()), str(dst_name.resolve()), ignore=_skip_weights
+        )
         quantize_path = dst_name / "model.pth"
 
     elif mode == "int4":
@@ -477,9 +483,9 @@ def quantize(checkpoint_path: Path, mode: str, groupsize: int, timestamp: str) -
 
         dir_name = checkpoint_path
         dst_name = Path(f"checkpoints/fs-1.2-int4-g{groupsize}-{now}")
-        shutil.copytree(str(dir_name.resolve()), str(dst_name.resolve()))
-        if (dst_name / vq_model).exists():
-            (dst_name / vq_model).unlink()
+        shutil.copytree(
+            str(dir_name.resolve()), str(dst_name.resolve()), ignore=_skip_weights
+        )
         quantize_path = dst_name / "model.pth"
 
     else:
