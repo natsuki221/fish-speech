@@ -96,8 +96,15 @@ type PendingReference = {
 }
 
 const initialControls: ControlsState = {
-  chunkLength: 1000,
-  maxNewTokens: 2048,
+  // Audio for a batch is decoded in one piece, and the DAC decoder's last block
+  // runs at 96 channels and the full 44.1 kHz rate, so the peak scales with how
+  // much audio a single chunk turns into. Measured on a 24 GB card (16.4 GB
+  // resident for the models): ~1.5 GB per 200 bytes of chunk, i.e. 1000 would
+  // add ~7.7 GB and leave nothing for encoding a reference clip.
+  chunkLength: 300,
+  // Bounds a batch that fails to stop: 1024 tokens is ~47 s of audio, and a
+  // 300-byte chunk only needs ~485.
+  maxNewTokens: 1024,
   temperature: 0.9,
   topP: 0.9,
   repetitionPenalty: 1.05,
@@ -631,7 +638,7 @@ function App() {
   return (
     <main className="min-h-screen bg-zinc-50">
       <div className="mx-auto max-w-[1600px] px-3 py-3 sm:px-4 lg:px-5">
-        <div className="grid gap-4 xl:h-[calc(100vh-1.5rem)] xl:grid-cols-[minmax(0,1fr)_460px]">
+        <div className="grid gap-4 xl:min-h-[calc(100vh-1.5rem)] xl:grid-cols-[minmax(0,1fr)_460px]">
           <section className="grid gap-4 xl:min-h-0 xl:grid-rows-[minmax(0,1fr)_auto]">
             <Card className="rounded-xl border-zinc-200 bg-white shadow-none xl:min-h-0 xl:flex xl:flex-col">
               <CardHeader className="space-y-1 border-b border-zinc-100 px-4 py-4">
@@ -800,7 +807,7 @@ function App() {
             </Card>
           </section>
 
-          <aside className="grid gap-4 xl:min-h-0 xl:grid-rows-[minmax(0,1fr)_auto]">
+          <aside className="grid gap-4 xl:min-h-0 xl:grid-rows-[minmax(260px,1fr)_auto]">
             <Card className="rounded-xl border-zinc-200 bg-white shadow-none xl:min-h-0 xl:flex xl:flex-col">
               <CardHeader className="space-y-1 border-b border-zinc-100 px-4 py-4">
                 <div className="flex items-center gap-2 text-zinc-700">
