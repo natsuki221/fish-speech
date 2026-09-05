@@ -488,8 +488,27 @@ def split_text_by_speaker(text: str) -> list[str]:
     return turns
 
 
+def split_into_sentences(text: str) -> list[str]:
+    """
+    Split plain (untagged) text on sentence boundaries.
+
+    Nothing is dropped: concatenating the parts reproduces the input exactly, so
+    a wrong split only ever becomes a batch boundary, never altered text. CJK
+    punctuation needs no trailing space; ASCII punctuation requires one so that
+    decimals like "3.14" stay intact.
+    """
+    return [
+        p
+        for p in re.split(r"(?<=[\u3002\uff01\uff1f\uff1b\n])|(?<=[.!?;])(?=\s)", text)
+        if p
+    ]
+
+
 def group_turns_into_batches(
-    turns: list[str], max_speakers: int = 3, max_bytes: int = 300
+    turns: list[str],
+    max_speakers: int | None = 3,
+    max_bytes: int = 300,
+    joiner: str = "\n",
 ) -> list[str]:
     """
     Group turns into batches based on speaker count or byte limit.
@@ -509,11 +528,13 @@ def group_turns_into_batches(
     for turn in turns:
         turn_bytes = len(turn.encode("utf-8"))
 
-        would_exceed_speakers = len(current_batch) >= max_speakers
+        would_exceed_speakers = (
+            max_speakers is not None and len(current_batch) >= max_speakers
+        )
         would_exceed_bytes = current_bytes + turn_bytes > max_bytes and current_batch
 
         if would_exceed_speakers or would_exceed_bytes:
-            batches.append("\n".join(current_batch))
+            batches.append(joiner.join(current_batch).strip())
             current_batch = [turn]
             current_bytes = turn_bytes
         else:
@@ -521,7 +542,7 @@ def group_turns_into_batches(
             current_bytes += turn_bytes
 
     if current_batch:
-        batches.append("\n".join(current_batch))
+        batches.append(joiner.join(current_batch).strip())
 
     return batches
 
@@ -610,7 +631,16 @@ def generate_long(
             turns, max_speakers=5, max_bytes=chunk_length
         )
     else:
-        batches = [text]
+        # Untagged text used to bypass chunk_length entirely and become a single
+        # batch, so the decoder had to allocate for the whole output at once.
+        # ponytail: a single sentence longer than chunk_length still goes through
+        # whole; add a hard byte split if unpunctuated input shows up for real.
+        batches = group_turns_into_batches(
+            split_into_sentences(text),
+            max_speakers=None,
+            max_bytes=chunk_length,
+            joiner="",
+        )
 
     logger.info(f"Split into {len(turns)} turns, grouped into {len(batches)} batches")
 
